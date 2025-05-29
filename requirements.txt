@@ -1,4 +1,5 @@
-plyer
-
+playwright
 requests
+flask
 beautifulsoup4
+pyler
