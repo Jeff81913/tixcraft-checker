@@ -25,6 +25,11 @@ last_notify_time = {}
 
 app = Flask(__name__)
 
+# ✅ 新增首頁路由，給 Render 網址或 UptimeRobot 用
+@app.route('/')
+def home():
+    return "✅ Tixcraft 票務監控 Web Service 正常運行中！"
+
 def send_discord_message(message):
     data = {"content": message}
     try:
