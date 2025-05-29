@@ -1,2 +1,4 @@
+plyer
+
 requests
 beautifulsoup4
