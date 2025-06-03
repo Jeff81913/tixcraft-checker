@@ -14,7 +14,8 @@ DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1376936753469984768/c5W1
 TIXCRAFT_URLS = {
     "6/29 BABYMONSTER": "https://tixcraft.com/ticket/area/25_bm/19396",
     "6/28 BABYMONSTER": "https://tixcraft.com/ticket/area/25_bm/19207",
-    "6/19 Jay park":"https://tixcraft.com/ticket/area/25_jaypark/19480"
+    "6/19 Jay park":"https://tixcraft.com/ticket/area/25_jaypark/19480",
+    "TEST":"https://tixcraft.com/ticket/area/25_xalive/19055"
 }
 
 # ====== 檢查間隔（秒）======
