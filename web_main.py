@@ -1,11 +1,8 @@
 from flask import Flask
 import threading
 import time
-from flask import Flask
-import threading
-import time
 import requests
-from bs4 import BeautifulSoup
+from playwright.sync_api import sync_playwright
 
 # ====== Discord Webhook URL ======
 DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1376936753469984768/c5W1T69kOiEFQkea-uK5kvxJtz8rH-FodWr7be4vK61yKdlRLQUqC67L1vPBNRzKSnev"
@@ -14,9 +11,8 @@ DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1376936753469984768/c5W1
 TIXCRAFT_URLS = {
     "6/29 BABYMONSTER": "https://tixcraft.com/ticket/area/25_bm/19396",
     "6/28 BABYMONSTER": "https://tixcraft.com/ticket/area/25_bm/19207",
-    "6/19 Jay park":"https://tixcraft.com/ticket/area/25_jaypark/19480",
-    "TEST":"https://tixcraft.com/ticket/area/25_xalive/19055"
-}
+    "6/19 Jay park": "https://tixcraft.com/ticket/area/25_jaypark/19480"
+   }
 
 # ====== 檢查間隔（秒）======
 CHECK_INTERVAL = 3
@@ -27,10 +23,13 @@ last_notify_time = {}
 
 app = Flask(__name__)
 
-# ✅ 新增首頁路由，給 Render 網址或 UptimeRobot 用
-@app.route('/')
+@app.route("/")
 def home():
     return "✅ Tixcraft 票務監控 Web Service 正常運行中！"
+
+@app.route("/ping")
+def ping():
+    return "OK", 200
 
 def send_discord_message(message):
     data = {"content": message}
@@ -44,41 +43,55 @@ def send_discord_message(message):
         print(f"⚠️ 發送 Discord 發生錯誤：{e}")
 
 def check_tickets():
-    print("🚀 開始監控以下 BABYMONSTER 場次：")
+    print("🚀 開始監控以下場次：")
     for name in TIXCRAFT_URLS:
         print(f" - {name}")
+
     while True:
-        for name, url in TIXCRAFT_URLS.items():
-            try:
-                headers = {"User-Agent": "Mozilla/5.0"}
-                response = requests.get(url, headers=headers, timeout=10)
-                soup = BeautifulSoup(response.text, 'html.parser')
-                page_text = soup.get_text()
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page()
+            for name, url in TIXCRAFT_URLS.items():
+                try:
+                    page.goto(url, timeout=10000)
+                    page.wait_for_selector("div.zone", timeout=10000)
 
-                keywords = ["立即訂票", "選擇座位", "可售票區", "剩餘", "可選擇"]
-                has_ticket = any(keyword in page_text for keyword in keywords)
-                now = time.time()
+                    # 讀取票區文字
+                    content = page.inner_text("div.zone")
+                    print(f"\n===== DEBUG [{name}] =====")
+                    print(content)
 
-                if has_ticket:
-                    if last_status.get(name) != "有票":
-                        print(f"🎫 [{name}] 有票啦！！")
-                        send_discord_message(f"🎫 **{name} 有票啦！**\n👉 {url}")
-                        last_status[name] = "有票"
-                else:
-                    print(f"⏳ [{name}] 尚無票可購買...")
-                    if (last_status.get(name) != "沒票" or
-                        now - last_notify_time.get(name, 0) >= 3600):
-                        send_discord_message(f"🔕 **{name} 尚無票**（每小時通知）\n👉 {url}")
-                        last_notify_time[name] = now
-                        last_status[name] = "沒票"
+                    # 判斷是否含有票關鍵字
+                    keywords = ["剩餘", "立即訂票", "選擇座位", "可售票區", "seat(s) remaining"]
+                    has_ticket = any(keyword in content for keyword in keywords)
+                    now = time.time()
 
-            except Exception as e:
-                print(f"⚠️ [{name}] 發生錯誤：{e}")
+                    if has_ticket:
+                         if last_status.get(name) != "有票":
+                             print(f"🎫 [{name}] 有票啦！！")
+        
+                             # 取出所有「XXX seat(s) remaining」的區塊（只顯示有票的行）
+                             remaining_lines = "\n".join(
+                                 [line.strip() for line in content.splitlines() if "seat(s) remaining" in line]
+                             )
+
+                             # 組成完整通知文字
+                             message = f"🎫 **{name} 有票啦！**\n👉 {url}\n\n📌 剩餘座位：\n```\n{remaining_lines}\n```"
+                             send_discord_message(message)
+        
+                             last_status[name] = "有票"
+
+                    else:
+                        print(f"⏳ [{name}] 尚無票可購買...")
+                        if last_status.get(name) != "沒票" or now - last_notify_time.get(name, 0) >= 43200:
+                            send_discord_message(f"🔕 **{name} 尚無票**（每12小時通知）\n👉 {url}")
+                            last_notify_time[name] = now
+                            last_status[name] = "沒票"
+
+                except Exception as e:
+                    print(f"⚠️ [{name}] 發生錯誤：{e}")
+            browser.close()
         time.sleep(CHECK_INTERVAL)
-
-@app.route("/ping")
-def ping():
-    return "OK", 200
 
 def run_checker():
     thread = threading.Thread(target=check_tickets)
