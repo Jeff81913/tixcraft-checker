@@ -83,8 +83,8 @@ def check_tickets():
 
                     else:
                         print(f"⏳ [{name}] 尚無票可購買...")
-                        if last_status.get(name) != "沒票" or now - last_notify_time.get(name, 0) >= 43200:
-                            send_discord_message(f"🔕 **{name} 尚無票**（每12小時通知）\n👉 {url}")
+                        if last_status.get(name) != "沒票" or now - last_notify_time.get(name, 0) >= 3600:
+                            send_discord_message(f"🔕 **{name} 尚無票**（每小時通知）\n👉 {url}")
                             last_notify_time[name] = now
                             last_status[name] = "沒票"
 
