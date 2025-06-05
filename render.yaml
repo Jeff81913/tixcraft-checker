@@ -1,8 +1,12 @@
 services:
   - type: web
-    name: tixcraft-checker
+    name: tixcraft-checker-web
     env: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: python web_main.py
-    envVars: []
     plan: free
+    buildCommand: |
+      pip install -r requirements.txt
+      playwright install chromium
+    startCommand: python web_main.py
+    envVars:
+      - key: PYTHONUNBUFFERED
+        value: "true"
